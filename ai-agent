@@ -1,0 +1,140 @@
+#!/Users/manoj/multi_agent_ai/venv/bin/python3
+
+import argparse
+import ollama
+from agent import create_agent, list_agents, edit_agent
+from database import create_connection, create_tables
+from config import OLLAMA_MODEL
+
+
+def main():
+    create_tables()
+    parser = argparse.ArgumentParser(description='Multi-Agent AI Framework')
+    subparsers = parser.add_subparsers(dest='command')
+
+    # Create agent command
+    create_parser = subparsers.add_parser('create_agent', help='Create a new agent')
+    create_parser.add_argument('--name', required=True, help='Agent name')
+    create_parser.add_argument('--description', help='Agent description')
+    create_parser.add_argument('--base_prompt', help='Agent base prompt')
+    create_parser.add_argument('--dbml_schema', help='DBML schema for the agent')
+
+    # List agents command
+    subparsers.add_parser('list_agents', help='List all agents')
+
+    # Edit agent command
+    edit_parser = subparsers.add_parser('edit_agent', help='Edit an existing agent')
+    edit_parser.add_argument('--id', required=True, type=int, help='Agent ID')
+    edit_parser.add_argument('--name', help='New agent name')
+    edit_parser.add_argument('--description', help='New agent description')
+    edit_parser.add_argument('--base_prompt', help='New agent base prompt')
+    edit_parser.add_argument('--dbml_schema', help='New DBML schema')
+
+    # Use agent command
+    use_parser = subparsers.add_parser('use_agent', help='Use an agent to ask a question')
+    use_parser.add_argument('--id', required=True, type=int, help='Agent ID')
+    use_parser.add_argument('--query', required=True, help='Question to ask the agent')
+
+    args = parser.parse_args()
+
+    if args.command == 'create_agent':
+        create_agent(args.name, args.description, args.base_prompt, args.dbml_schema)
+        print(f"Agent '{args.name}' created successfully.")
+    elif args.command == 'list_agents':
+        agents = list_agents()
+        for agent in agents:
+            print(f'ID: {agent[0]}, Name: {agent[1]}, Description: {agent[2]}')
+    elif args.command == 'edit_agent':
+        edit_agent(args.id, args.name, args.description, args.base_prompt, args.dbml_schema)
+        print(f"Agent with ID {args.id} updated successfully.")
+    elif args.command == 'use_agent':
+        use_agent(args.id, args.query)
+
+def use_agent(agent_id, query):
+    conn = create_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM agents WHERE id = ?", (agent_id,))
+    agent = cursor.fetchone()
+    conn.close()
+
+    if not agent:
+        print(f"Agent with ID {agent_id} not found.")
+        return
+
+    base_prompt = agent[3]
+    dbml_schema = agent[4]
+
+    prompt = f'''{base_prompt}
+
+DBML Schema:
+{dbml_schema}
+
+Question: {query}
+
+Generate ONLY the SQL query, enclosed within `BEGIN SQL` and `END SQL` markers. After the `END SQL` marker, on a new line, output '---REASONING---', and then provide a step-by-step reasoning for the query.
+Example:
+BEGIN SQL
+SELECT * FROM users;
+END SQL
+---REASONING---
+This query selects all users.
+'''
+
+    response = ollama.generate(
+        model=OLLAMA_MODEL,
+        prompt=prompt
+    )
+
+    response_text = response['response']
+    
+    generated_sql = ""
+    reasoning = ""
+
+    sql_start = response_text.find('BEGIN SQL')
+    sql_end = response_text.find('END SQL')
+    reasoning_start = response_text.find('---REASONING---')
+
+    if sql_start != -1 and sql_end != -1 and sql_end > sql_start:
+        generated_sql = response_text[sql_start + len('BEGIN SQL'):sql_end].strip()
+    
+    if reasoning_start != -1:
+        reasoning = response_text[reasoning_start + len('---REASONING---'):].strip()
+    
+    if not generated_sql and not reasoning:
+        generated_sql = response_text.strip()
+        reasoning = "Could not parse SQL or reasoning based on markers. The entire response was treated as SQL."
+    elif not generated_sql:
+        generated_sql = "-- No SQL generated or found within markers."
+    elif not reasoning:
+        reasoning = "No reasoning provided or found after marker."
+
+    conn = create_connection()
+    cursor = conn.cursor()
+    
+    try:
+        if generated_sql.strip().upper().startswith("SELECT"):
+            cursor.execute(generated_sql)
+            results = cursor.fetchall()
+            print("\nQuery executed successfully. Results:")
+            for row in results:
+                print(row)
+        else:
+            cursor.execute(generated_sql)
+            conn.commit()
+            print("Query executed successfully.")
+    except Exception as e:
+        print(f"Error executing SQL: {e}")
+        conn.rollback()
+
+    cursor.execute("INSERT INTO conversation_logs (agent_id, user_query, generated_sql, reasoning) VALUES (?, ?, ?, ?)",
+                   (agent_id, query, generated_sql, reasoning))
+    conn.commit()
+    conn.close()
+
+    print("\nGenerated SQL:")
+    print(generated_sql)
+    print("\nReasoning:")
+    print(reasoning)
+
+if __name__ == '__main__':
+    main()

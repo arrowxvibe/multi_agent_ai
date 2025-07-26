@@ -1,0 +1,26 @@
+
+Table customers {
+  id integer [primary key]
+  name varchar
+  email varchar
+  signup_date date
+}
+
+Table orders {
+  id integer [primary key]
+  customer_id integer [ref: > customers.id]
+  order_date date
+  total_amount decimal
+}
+
+Table products {
+  id integer [primary key]
+  name varchar
+  price decimal
+}
+
+Table order_items {
+  order_id integer [ref: > orders.id]
+  product_id integer [ref: > products.id]
+  quantity integer
+}

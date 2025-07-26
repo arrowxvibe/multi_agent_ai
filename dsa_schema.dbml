@@ -1,0 +1,22 @@
+
+Table roadmaps {
+  id integer [primary key]
+  name varchar [not null, unique]
+  description text
+}
+
+Table topics {
+  id integer [primary key]
+  roadmap_id integer [ref: > roadmaps.id]
+  parent_id integer [ref: > topics.id]
+  name varchar [not null]
+  description text
+}
+
+Table questions {
+  id integer [primary key]
+  topic_id integer [ref: > topics.id]
+  question_text text [not null]
+  difficulty_rating integer
+  is_done boolean [default: false]
+}
