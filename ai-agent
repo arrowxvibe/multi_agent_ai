@@ -17,7 +17,7 @@ def main():
     create_parser.add_argument('--name', required=True, help='Agent name')
     create_parser.add_argument('--description', help='Agent description')
     create_parser.add_argument('--base_prompt', help='Agent base prompt')
-    create_parser.add_argument('--dbml_schema', help='DBML schema for the agent')
+    create_parser.add_argument('--data_model_description', help='Natural language description of the data model for the agent')
 
     # List agents command
     subparsers.add_parser('list_agents', help='List all agents')
@@ -28,7 +28,7 @@ def main():
     edit_parser.add_argument('--name', help='New agent name')
     edit_parser.add_argument('--description', help='New agent description')
     edit_parser.add_argument('--base_prompt', help='New agent base prompt')
-    edit_parser.add_argument('--dbml_schema', help='New DBML schema')
+    edit_parser.add_argument('--data_model_description', help='New natural language description of the data model')
 
     # Use agent command
     use_parser = subparsers.add_parser('use_agent', help='Use an agent to ask a question')
@@ -38,14 +38,14 @@ def main():
     args = parser.parse_args()
 
     if args.command == 'create_agent':
-        create_agent(args.name, args.description, args.base_prompt, args.dbml_schema)
+        create_agent(args.name, args.description, args.base_prompt, args.data_model_description)
         print(f"Agent '{args.name}' created successfully.")
     elif args.command == 'list_agents':
         agents = list_agents()
         for agent in agents:
             print(f'ID: {agent[0]}, Name: {agent[1]}, Description: {agent[2]}')
     elif args.command == 'edit_agent':
-        edit_agent(args.id, args.name, args.description, args.base_prompt, args.dbml_schema)
+        edit_agent(args.id, args.name, args.description, args.base_prompt, args.data_model_description)
         print(f"Agent with ID {args.id} updated successfully.")
     elif args.command == 'use_agent':
         use_agent(args.id, args.query)

@@ -1,0 +1,9 @@
+Generate SQLite CREATE TABLE statements based on the following natural language description. The output should be valid SQLite SQL. Only output the SQL statements, nothing else.
+
+Description: {data_model_description}
+
+Example of desired SQL format:
+CREATE TABLE users (
+  id INTEGER PRIMARY KEY,
+  name TEXT
+);

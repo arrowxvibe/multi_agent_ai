@@ -6,7 +6,7 @@ This project provides a command-line interface (CLI) based framework for managin
 
 ## Features
 
-- **Agent Creation & Management**: Create, list, and edit AI agents with custom names, descriptions, base prompts, and DBML schemas.
+- **Agent Creation & Management**: Create, list, and edit AI agents with custom names, descriptions, base prompts, and natural language data model descriptions (from which DBML schemas are generated).
 - **Natural Language to SQL**: Interact with agents using plain English queries, which are then translated into SQL commands by the Ollama LLM.
 - **Conversation Logging**: All interactions, including user queries, generated SQL, and AI reasoning, are logged for review.
 - **Schema Awareness**: Agents understand the database structure through provided DBML schemas, ensuring generated SQL conforms to the defined data model.
@@ -98,37 +98,11 @@ python -m multi_agent_ai.database
 
 #### 1. Create a New Agent
 
-To create a new AI agent, use the `create_agent` command. You'll need to provide a name, description, a base prompt, and a DBML schema.
+To create a new AI agent, use the `create_agent` command. You'll need to provide a name, description, a base prompt, and a natural language description of the data model. The agent will then generate the DBML schema and create the necessary tables.
 
 **Example: Creating a DSA Roadmap Tracker Agent**
 
-First, create a DBML schema file (e.g., `dsa_schema.dbml`) in your `multi_agent_ai` directory:
-
-```dbml
-Table roadmaps {
-  id integer [primary key]
-  name varchar [not null, unique]
-  description text
-}
-
-Table topics {
-  id integer [primary key]
-  roadmap_id integer [ref: > roadmaps.id]
-  parent_id integer [ref: > topics.id]
-  name varchar [not null]
-  description text
-}
-
-Table questions {
-  id integer [primary key]
-  topic_id integer [ref: > topics.id]
-  question_text text [not null]
-  difficulty_rating integer
-  is_done boolean [default: false]
-}
-```
-
-Next, create a base prompt file (e.g., `dsa_prompt.txt`):
+First, create a base prompt file (e.g., `dsa_prompt.txt`):
 
 ```
 You are a learning assistant. Your goal is to help the user manage their DSA learning roadmap. Based on the user's request, generate the correct SQL query to interact with the database defined by the provided DBML schema. Focus only on the immediate request and do not generate SQL for actions not explicitly asked for (e.g., do not create a roadmap if the request is to add a topic to an existing one). Ensure the generated SQL is syntactically correct for SQLite.
@@ -150,7 +124,7 @@ ai-agent create_agent \
   --name "DSA Roadmap Tracker" \
   --description "An agent to manage a Data Structures and Algorithms learning roadmap." \
   --base_prompt "$(cat dsa_prompt.txt)" \
-  --dbml_schema "$(cat dsa_schema.dbml)"
+  --data_model_description "A database to track DSA roadmaps, topics, and questions. Roadmaps have a name and description. Topics belong to a roadmap and can have a parent topic, a name, and a description. Questions belong to a topic and have text, a difficulty rating, and a boolean indicating if they are done."
 ```
 
 #### 2. List All Agents
@@ -175,6 +149,12 @@ ai-agent edit_agent --id 1 --description "Updated description for the DSA agent.
 
 ```bash
 ai-agent edit_agent --id 1 --base_prompt "$(cat dsa_prompt.txt)"
+```
+
+**Example: Updating an Agent's Data Model Description**
+
+```bash
+ai-agent edit_agent --id 1 --data_model_description "A database to track DSA roadmaps, topics, and questions. Roadmaps have a name and description. Topics belong to a roadmap and can have a parent topic, a name, and a description. Questions belong to a topic and have text, a difficulty rating, and a boolean indicating if they are done."
 ```
 
 ### Interacting with Agents
@@ -222,6 +202,6 @@ ai-agent use_agent --id 1 --query "List all questions under 'Arrays' topic."
 ## Troubleshooting
 
 -   **`ModuleNotFoundError`**: Ensure your virtual environment is activated (`source venv/bin/activate`) and all dependencies are installed (`pip install -r requirements.txt`). If you added `ai-agent` to your PATH, ensure the shebang line (`#!/path/to/your/venv/bin/python3`) correctly points to your virtual environment's Python interpreter.
--   **`sqlite3.OperationalError: no such table`**: This indicates the database schema for your agent's DBML has not been applied. Ensure you have run `ai-agent edit_agent --id <agent_id> --dbml_schema "$(cat your_schema.dbml)"` for the agent, or explicitly run `python -m multi_agent_ai.database` to initialize the core tables.
+-   **`sqlite3.OperationalError: no such table`**: This indicates the database schema for your agent's data model has not been applied. Ensure you have run `ai-agent edit_agent --id <agent_id> --data_model_description "Your data model description"` for the agent, or explicitly run `python -m multi_agent_ai.database` to initialize the core tables.
 -   **SQL Syntax Errors**: If the agent generates incorrect SQL, refine the `base_prompt` for that agent to provide clearer instructions and examples on the expected SQL format and constraints.
 -   **`ai-agent: command not found`**: If you added `ai-agent` to your PATH, ensure you have sourced your shell configuration file (e.g., `source ~/.zshrc`) or restarted your terminal after adding the path.
